@@ -48,7 +48,7 @@ let register_plugin (s: string) (arity: Prims.int) (t: itac) (n:nbe_itac) =
           }
     in
     FStar_TypeChecker_Cfg.register_plugin step;
-    BU.print1 "Registered plugin %s\n" s
+    BU.print1_error "Registered plugin %s\n" s
 
 let register_tactic (s: string) (arity: Prims.int) (t: itac)=
     let step =
@@ -57,26 +57,26 @@ let register_tactic (s: string) (arity: Prims.int) (t: itac)=
           strong_reduction_ok=true;
           tactic=t } in
     compiled_tactics := step :: !compiled_tactics;
-    BU.print1 "Registered tactic %s\n" s
+    BU.print1_error "Registered tactic %s\n" s
 
 let interpret_tactic (ps: proofstate) (t: proofstate -> 'a __result) = t ps
 
 let from_tactic_0 (t: 'b __tac): ('b tac) =
     (fun (ps: proofstate) ->
-        BU.print_string "In compiled code (0)\n";
+        BU.print_error "In compiled code (0)\n";
         interpret_tactic ps t) |> mk_tac
 
 let from_tactic_1 (t: 'a -> 'b __tac): ('a -> 'b tac) =
     fun (x: 'a) ->
         (fun (ps: proofstate) ->
-            BU.print_string "In compiled code (1)\n";
+            BU.print_error "In compiled code (1)\n";
             interpret_tactic ps (t x)) |> mk_tac
 
 let from_tactic_2 (t: 'a -> 'b -> 'c __tac): ('a -> 'b -> 'c tac) =
     fun (x: 'a) ->
         fun (y: 'b) ->
             (fun (ps: proofstate) ->
-                BU.print_string "In compiled code (2)\n";
+                BU.print_error "In compiled code (2)\n";
                 interpret_tactic ps (t x y)) |> mk_tac
 
 let from_tactic_3 (t: 'a -> 'b -> 'c -> 'd __tac): ('a -> 'b -> 'c -> 'd tac) =
@@ -84,7 +84,7 @@ let from_tactic_3 (t: 'a -> 'b -> 'c -> 'd __tac): ('a -> 'b -> 'c -> 'd tac) =
         fun (y: 'b) ->
             fun (z: 'c) ->
                 (fun (ps: proofstate) ->
-                    BU.print_string "In compiled code (3)\n";
+                    BU.print_error "In compiled code (3)\n";
                     interpret_tactic ps (t x y z)) |> mk_tac
 
 let from_tactic_4 (t: 'a -> 'b -> 'c -> 'd -> 'e __tac): ('a -> 'b -> 'c -> 'd -> 'e tac) =
@@ -93,7 +93,7 @@ let from_tactic_4 (t: 'a -> 'b -> 'c -> 'd -> 'e __tac): ('a -> 'b -> 'c -> 'd -
             fun (z: 'c) ->
                 fun (w: 'd) ->
                     (fun (ps: proofstate) ->
-                        BU.print_string "In compiled code (4)\n";
+                        BU.print_error "In compiled code (4)\n";
                         interpret_tactic ps (t x y z w)) |> mk_tac
 
 let from_tactic_5 (t: 'a -> 'b -> 'c -> 'd -> 'e -> 'f __tac): ('a -> 'b -> 'c -> 'd -> 'e -> 'f tac) =
@@ -103,7 +103,7 @@ let from_tactic_5 (t: 'a -> 'b -> 'c -> 'd -> 'e -> 'f __tac): ('a -> 'b -> 'c -
                 fun (w: 'd) ->
                     fun (v: 'e) ->
                         (fun (ps: proofstate) ->
-                            BU.print_string "In compiled code (5)\n";
+                            BU.print_error "In compiled code (5)\n";
                             interpret_tactic ps (t x y z w v)) |> mk_tac
 
 let from_tactic_6 (t: 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g __tac): ('a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g tac) =
@@ -114,7 +114,7 @@ let from_tactic_6 (t: 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g __tac): ('a -> 'b -
                     fun (v: 'e) ->
                         fun (u: 'f) ->
                             (fun (ps: proofstate) ->
-                                BU.print_string "In compiled code (6)\n";
+                                BU.print_error "In compiled code (6)\n";
                                 interpret_tactic ps (t x y z w v u)) |> mk_tac
 
 
@@ -135,6 +135,6 @@ let from_tactic_13 (t:'t1 -> 't2 -> 't3 -> 't4 -> 't5 -> 't6 -> 't7 -> 't8 -> 't
     fun (a12: 't12) ->
     fun (a13: 't13) ->
     (fun (ps: proofstate) ->
-       BU.print_string "In compiled code (13)\n";
+       BU.print_error "In compiled code (13)\n";
        interpret_tactic ps (t a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13)) |> mk_tac
 
