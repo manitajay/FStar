@@ -100,13 +100,6 @@ let read_write_with_sharing () : RST unit
     get (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1)
   in
 
-  // This assertion is needed to conclude the commented assertion just below with
-  // focus_rmem_equality SMTPat
-  // TODO: Understand why this does not kick in with the postcondition of rst_frame
-  assert ((focus_rmem h0 (A.array_resource b1)) (A.array_resource b1) ==
-          (focus_rmem h_presplit (A.array_resource b1)) (A.array_resource b1));
-  // assert (h0 (A.array_resource b1) == h00 (A.array_resource b1));
-
   let x2 = rst_frame
     (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1)
     (fun _ -> (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1))
@@ -117,9 +110,6 @@ let read_write_with_sharing () : RST unit
     get (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1)
   in
 
-  // Again, need to add a assertion about focus_rmem to trigger SMTPats
-  assert (h0 (A.array_resource b_first) ==
-    (focus_rmem h0 (A.array_resource b_first <*> A.array_resource b1)) (A.array_resource b_first));
 
   rst_frame
     ((A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1))
@@ -127,13 +117,6 @@ let read_write_with_sharing () : RST unit
     (fun _ -> A.glue b b_first b_second);
 
   let h2 = get (A.array_resource b <*> A.array_resource b1) in
-
-  // Again, need assertions to trigger SMTPats to prove
-  // h0 (A.array_resource b1) == h2 (A.array_resource b1)
-  assert (h0 (A.array_resource b1) ==
-    (focus_rmem h0 (A.array_resource b_first <*> A.array_resource b1)) (A.array_resource b1));
-  assert (h2 (A.array_resource b1) ==
-    (focus_rmem h2 (A.array_resource b1)) (A.array_resource b1));
 
   A.gather b b1;
   A.free b
