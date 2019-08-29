@@ -89,43 +89,51 @@ let read_write_with_sharing () : RST unit
       (fun _ -> A.array_resource b <*> A.array_resource b1)
       (fun _ -> A.index b 0ul)
   in
+  let h_presplit = get  (A.array_resource b <*> A.array_resource b1) in
   let b_first, b_second = rst_frame
     (A.array_resource b <*> A.array_resource b1)
     (fun p -> A.array_resource (fst p) <*> A.array_resource (snd p) <*> A.array_resource b1)
     (fun _ -> A.split #FStar.UInt32.t b 1ul)
   in
-  admit()
-(*
-    let h0 =
+
+  let h0 =
     get (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1)
   in
-  assert(A.get_rperm b_first h0 == A.get_rperm b_second h0);
+
+  // This assertion is needed to conclude the commented assertion just below with
+  // focus_rmem_equality SMTPat
+  // TODO: Understand why this does not kick in with the postcondition of rst_frame
+  assert ((focus_rmem h0 (A.array_resource b1)) (A.array_resource b1) ==
+          (focus_rmem h_presplit (A.array_resource b1)) (A.array_resource b1));
+  // assert (h0 (A.array_resource b1) == h00 (A.array_resource b1));
+
   let x2 = rst_frame
     (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1)
     (fun _ -> (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1))
     (fun _ -> A.index b_second 0ul)
   in
+
   let h1 =
     get (A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1)
   in
-  assume(
-    focus_rmem h0 (A.array_resource b_first <*> A.array_resource b_second) ==
-    focus_rmem h1 (A.array_resource b_first <*> A.array_resource b_second)
-  );
-  assume(
-    focus_rmem h0 (A.array_resource b1) ==
-    focus_rmem h1 (A.array_resource b1)
-  );
+
+  // Again, need to add a assertion about focus_rmem to trigger SMTPats
+  assert (h0 (A.array_resource b_first) ==
+    (focus_rmem h0 (A.array_resource b_first <*> A.array_resource b1)) (A.array_resource b_first));
+
   rst_frame
     ((A.array_resource b_first <*> A.array_resource b_second <*> A.array_resource b1))
     (fun _ -> (A.array_resource b <*> A.array_resource b1))
     (fun _ -> A.glue b b_first b_second);
+
   let h2 = get (A.array_resource b <*> A.array_resource b1) in
-  assume(
-    focus_rmem h1 (A.array_resource b1) ==
-    focus_rmem h2 (A.array_resource b1)
-  );
+
+  // Again, need assertions to trigger SMTPats to prove
+  // h0 (A.array_resource b1) == h2 (A.array_resource b1)
+  assert (h0 (A.array_resource b1) ==
+    (focus_rmem h0 (A.array_resource b_first <*> A.array_resource b1)) (A.array_resource b1));
+  assert (h2 (A.array_resource b1) ==
+    (focus_rmem h2 (A.array_resource b1)) (A.array_resource b1));
+
   A.gather b b1;
-  let h = get (A.array_resource b) in
   A.free b
-*)

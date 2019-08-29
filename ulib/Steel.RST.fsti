@@ -284,6 +284,7 @@ inline_for_extraction noextract val rst_frame
           (focus_rmem h0 inner0)
           x
           (focus_rmem h1 (inner1 x)) /\
-        (assert(delta `is_subresource_of` outer0); assert(delta `is_subresource_of` outer1 x);
-        focus_rmem h0 delta == focus_rmem h1 delta)
+
+        (delta `is_subresource_of` outer0) /\ (delta `is_subresource_of` outer1 x) /\
+        focus_rmem h0 delta == focus_rmem h1 delta
     )
