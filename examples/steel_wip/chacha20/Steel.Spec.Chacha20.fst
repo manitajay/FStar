@@ -101,3 +101,66 @@ let chacha20_core (ctr:counter) (s0:state)  : Tot state =
   let k = rounds k in
   let k = sum_state k s0 in
   chacha20_add_counter k  ctr
+
+inline_for_extraction
+let c0 = 0x61707865ul
+inline_for_extraction
+let c1 = 0x3320646eul
+inline_for_extraction
+let c2 = 0x79622d32ul
+inline_for_extraction
+let c3 = 0x6b206574ul
+
+let chacha20_constants : lseq UInt32.t 4 =
+  [@ inline_let]
+  let l = [c0;c1;c2;c3] in
+  assert_norm(List.Tot.length l == 4);
+  createL l
+
+(** Updating a sub-Sequence from another fixed-length Sequence *)
+val update_sub:
+    #a:Type
+  -> #len:nat
+  -> i:lseq a len
+  -> start:nat
+  -> n:nat{start + n <= len}
+  -> x:lseq a n ->
+  Tot (o:lseq a len{Seq.slice o start (start + n) == x /\
+    (forall (k:nat{(0 <= k /\ k < start) \/ (start + n <= k /\ k < len)}).
+      {:pattern (index o k)} index o k == index i k)})
+
+let update_sub #a #len s start n x =
+  let o =
+    Seq.append
+      (Seq.append (Seq.slice s 0 start) x)
+      (Seq.slice s (start + n) (length s)) in
+  Seq.lemma_eq_intro (Seq.slice o start (start + n)) x;
+  o
+
+assume
+val uints_from_bytes_le: #len:nat -> lbytes (len * 4) -> lseq UInt32.t len
+assume
+val uints_to_bytes_le: #len:nat -> lseq UInt32.t len -> lbytes (len * 4)
+
+
+
+let setup (k:key) (n:nonce) (ctr0:counter) (st:state) : Tot state =
+  let st = update_sub st 0 4 chacha20_constants in
+  let st = update_sub st 4 8 (uints_from_bytes_le k) in
+  let st = st.[12] <- ctr0 in
+  let st = update_sub st 13 3 (uints_from_bytes_le n) in
+  st
+
+let chacha20_init (k:key) (n:nonce) (ctr0:counter) : Tot state =
+  let st = create 16 (0ul) in
+  let st  = setup k n ctr0 st in
+  st
+
+let xor_block (k:state) (b:block) : block  =
+  let ib = uints_from_bytes_le b in
+  let ob = map2 UInt32.logxor ib k in
+  uints_to_bytes_le ob
+
+let chacha20_encrypt_block (st0:state) (incr:counter) (b:block) : Tot block =
+  let k = chacha20_core incr st0 in
+  xor_block k b
