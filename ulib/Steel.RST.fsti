@@ -144,10 +144,13 @@ val mk_rmem
 val focus_rmem (#r: resource) (h: rmem r) (r0: resource{r0 `is_subresource_of` r})
   : Tot (rmem r0)
 
-val focus_rmem_equality (outer inner: resource) (h: rmem outer) : Lemma
-  (requires (inner `is_subresource_of` outer))
-  (ensures (forall (arg:resource{arg `is_subresource_of` inner}). (focus_rmem h inner) arg == h arg))
-  [SMTPat ((focus_rmem #outer h inner))]
+val focus_rmem_equality (outer inner arg: resource) (h: rmem outer) : Lemma
+  (requires (inner `is_subresource_of` outer /\ arg `is_subresource_of` inner))
+  (ensures (focus_rmem h inner) arg == h arg)
+  [SMTPatOr [
+    [SMTPat ((focus_rmem #outer h inner) arg)];
+    [SMTPat (h arg); SMTPat (focus_rmem #outer h inner)]
+  ]]
 
 val focus_mk_rmem_equality (outer inner: resource) (h: HS.mem)
   : Lemma
