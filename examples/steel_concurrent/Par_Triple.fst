@@ -181,7 +181,8 @@ let (<*>) (r0 r1:resource) : resource =
 
 /// We assume here that the initial and final resources are the same
 let rec chi #a (c:m a) (r:resource) (pre:mem -> Type) (post:mem -> Type) (h_init h_current:mem) : Type =
-  match c with
+  r.view.inv h_current /\ // The invariant holds
+  (match c with
   | Ret x -> pre h_init ==> post h_current
 
   | Get b c ->
@@ -192,13 +193,10 @@ let rec chi #a (c:m a) (r:resource) (pre:mem -> Type) (post:mem -> Type) (h_init
 
   | Put b n c ->
         includes r.view.fp (Some b) /\ // The updated memory is inside the resource
-        // TODO: Equivalence is probably too strong. Should we rephrase chi to be {r.view.inv /\ pre}c{post /\ r.view.inv}
-        // with resource invariants somehow outside of chi?
-        (r.view.inv h_current <==> r.view.inv (upd b n h_current)) /\ // The resource invariant is preserved
 
         chi c r pre post h_init (upd b n h_current)
 
-  | MOr c0 c1 -> chi c0 r pre post h_init h_current /\ chi c1 r pre post h_init h_current
+  | MOr c0 c1 -> chi c0 r pre post h_init h_current /\ chi c1 r pre post h_init h_current)
 
 
 let r_pred (pred:mem -> Type) (r:resource) = fun h -> pred h /\ r.view.inv h
@@ -323,7 +321,7 @@ let rec chi_pre_implies_post (#a:Type) (c:m a) (r:resource) (l:loc) (pre:mem -> 
 /// We can extend the resource in chi to a starred resource
 let rec chi_bigger_resource (#a:Type) (c:m a) (r0 r1:resource) (pre:mem -> Type) (post:mem -> Type) (h_init h_current:mem)
   : Lemma
-  (requires chi c r1 pre post h_init h_current /\ disjoint r0.view.fp r1.view.fp)
+  (requires chi c r1 pre post h_init h_current /\ disjoint r0.view.fp r1.view.fp /\ r0.view.inv h_current)
   (ensures chi c (r0 <*> r1) pre post h_init h_current /\ chi c (r1 <*> r0) pre post h_init h_current)
   (decreases c)
   =  match c with
@@ -333,7 +331,6 @@ let rec chi_bigger_resource (#a:Type) (c:m a) (r0 r1:resource) (pre:mem -> Type)
   | Put b n c ->
     let h' = upd b n h_current in
     assert (modifies (r1.view.fp) h_current h');
-    assert (modifies r1.view.fp h' h_current);
     chi_bigger_resource c r0 r1 pre post h_init h'
   | MOr c0 c1 -> chi_bigger_resource c0 r0 r1 pre post h_init h_current; chi_bigger_resource c1 r0 r1 pre post h_init h_current
 
@@ -347,7 +344,6 @@ let rec chi_modifies_disjoint (#a:Type) (c:m a) (r:resource) (pre:mem -> Type) (
   (decreases c)
   =
   match c with
-
   | Ret _ -> assert (modifies (Some b') h_current (upd b' n' h_current))
   | Get b c' ->
       FStar.WellFounded.axiom1 c' (h_current b); chi_modifies_disjoint (c' (h_current b)) r pre post h_init h_current b' n'
@@ -356,12 +352,7 @@ let rec chi_modifies_disjoint (#a:Type) (c:m a) (r:resource) (pre:mem -> Type) (
     chi_modifies_disjoint c r pre post h_init h' b' n';
 
     FunctionalExtensionality.extensionality bool (fun _ -> nat)
-      (upd b n (upd b' n' h_current)) (upd b' n' (upd b n h_current));
-    let h_new = upd b' n' h_current in
-    assert (modifies (Some b') h_new h_current);
-    assert (modifies (Some b') h_current h_new);
-    assert (modifies (Some b') (upd b n h_current) (upd b n h_new));
-    assert (modifies (Some b') (upd b n h_new) (upd b n h_current))
+      (upd b n (upd b' n' h_current)) (upd b' n' (upd b n h_current))
 
   | MOr c0 c1 ->
         chi_modifies_disjoint c0 r pre post h_init h_current b' n';
@@ -402,10 +393,7 @@ let rec lemma_lpar (#a #b:Type)
 
       chi_modifies_disjoint c1 r1 (r_pred pre1 r1) (r_pred post1 r1) h_init h_current b' n;
       lemma_lpar r0 r1 c0' c1 pre0 pre1 post0 post1 h_init (upd b' n h_current);
-      lemma_rpar r0 r1 c0' c1 pre0 pre1 post0 post1 h_init (upd b' n h_current);
-
-      assert (modifies r0.view.fp h_current (upd b' n h_current));
-      assert (modifies r0.view.fp (upd b' n h_current) h_current)
+      lemma_rpar r0 r1 c0' c1 pre0 pre1 post0 post1 h_init (upd b' n h_current)
 
     | MOr c0' c0'' -> lemma_lpar r0 r1 c0' c1 pre0 pre1 post0 post1 h_init h_current; lemma_lpar r0 r1 c0'' c1 pre0 pre1 post0 post1 h_init h_current
 
@@ -442,11 +430,7 @@ and lemma_rpar (#a #b:Type)
       chi_modifies_disjoint c0 r0 (r_pred pre0 r0) (r_pred post0 r0) h_init h_current b' n;
 
       lemma_lpar r0 r1 c0 c1' pre0 pre1 post0 post1 h_init (upd b' n h_current);
-      lemma_rpar r0 r1 c0 c1' pre0 pre1 post0 post1 h_init (upd b' n h_current);
-
-      assert (modifies r1.view.fp h_current (upd b' n h_current));
-      assert (modifies r1.view.fp (upd b' n h_current) h_current)
-
+      lemma_rpar r0 r1 c0 c1' pre0 pre1 post0 post1 h_init (upd b' n h_current)
 
     | MOr c1' c1'' ->
           lemma_rpar r0 r1 c0 c1' pre0 pre1 post0 post1 h_init h_current;
