@@ -1,21 +1,37 @@
 module ParDiv
 
-let associative #a (f: a -> a -> a) =
-  forall x y z. f x (f y z) == f (f x y) z
+let symmetry #a (equals: a -> a -> prop) =
+  forall x y. x `equals` y ==> y `equals` x
 
-let commutative #a (f: a -> a -> a) =
-  forall x y. f x y == f y x
+let transitive #a (equals:a -> a -> prop) =
+  forall x y z. x `equals` y /\ y `equals` z ==> x `equals` z
 
-let is_unit #a (x:a) (f:a -> a -> a) =
-  forall y. f x y == y /\ f y x == y
+let associative #a (equals:a -> a -> prop) (f: a -> a -> a) =
+  forall x y z. f x (f y z) `equals` f (f x y) z
+
+let commutative #a (equals:a -> a -> prop) (f: a -> a -> a) =
+  forall x y. f x y `equals` f y x
+
+let is_unit #a (x:a) (equals:a -> a -> prop) (f:a -> a -> a) =
+  forall y. f x y `equals` y /\ f y x `equals` y
+
+let equals_law #a (equals:a -> a -> prop) (f:a -> a -> a) =
+  forall x1 x2 y. x1 `equals` x2 ==> f x1 y `equals` f x2 y
+
+let interp_extensionality #r #s (equals:r -> r -> prop) (f:r -> s -> prop) =
+  forall x y h. equals x y /\ f x h ==> f y h
 
 noeq
 type comm_monoid (s:Type) = {
   r:Type;
+  equals:r -> r -> prop;
   emp: r;
   star: r -> r -> r;
   interp: r -> s -> prop;
-  laws: squash (associative star /\ commutative star /\ is_unit emp star)
+  laws: squash (
+    symmetry equals /\ transitive equals /\ equals_law equals star /\
+    associative equals star /\ commutative equals star /\ is_unit emp equals star /\
+    interp_extensionality equals interp)
 }
 
 noeq
@@ -89,6 +105,8 @@ let elim_eq #a #b (f g : (a -> b)) (x:a)
   : Lemma (f == g ==> f x == g x)
   = ()
 
+#set-options "--max_fuel 2 --max_ifuel 1 --z3rlimit 20"
+
 let rec run_threads #s #c (i:nat) (ts:threads s c) (state:s) (frame:c.r)
   : Div s
         (requires
@@ -103,8 +121,12 @@ let rec run_threads #s #c (i:nat) (ts:threads s c) (state:s) (frame:c.r)
       match m with
       | Ret x ->
         assert (c.interp ((p `c.star` (threads_pre rest)) `c.star` frame) state);
+        assert (((p `c.star` threads_pre rest) `c.star` frame) `c.equals`
+          ((threads_pre rest `c.star` p) `c.star` frame));
         let state' = run_threads (i + 1) rest state (p `c.star` frame) in
         assert (c.interp (threads_post rest `c.star` (p `c.star` frame)) state');
+        assert (((q `c.star` threads_post rest) `c.star` frame) `c.equals`
+          ((threads_post rest `c.star` q) `c.star` frame));
         pick_thread_post i ts state' frame;
         state'
 
@@ -125,6 +147,10 @@ let rec run_threads #s #c (i:nat) (ts:threads s c) (state:s) (frame:c.r)
         let t0 = Thread p0 q0 m0 in
         let t1 = Thread p1 q1 m1 in
         let threads = t0::t1::rest in
+        assert ((((p0 `c.star` p1) `c.star` threads_pre rest) `c.star` frame) `c.equals`
+          ((p0 `c.star` (p1 `c.star` threads_pre rest)) `c.star` frame));
         let state'' = run_threads (i + 1) threads state frame in
+        assert ((((q0 `c.star` q1) `c.star` threads_post rest) `c.star` frame) `c.equals`
+          ((q0 `c.star` (q1 `c.star` threads_post rest)) `c.star` frame));
         pick_thread_post i ts state'' frame;
         state''
