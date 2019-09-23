@@ -18,6 +18,9 @@ let is_unit #a (x:a) (equals:a -> a -> prop) (f:a -> a -> a) =
 let equals_law #a (equals:a -> a -> prop) (f:a -> a -> a) =
   forall x1 x2 y. x1 `equals` x2 ==> f x1 y `equals` f x2 y
 
+let interp_star #r #s (star:r -> r -> r) (f:r -> s -> prop) =
+  forall x1 x2 h. f (x1 `star` x2) h ==> (f x1 h /\ f x2 h)
+
 let interp_extensionality #r #s (equals:r -> r -> prop) (f:r -> s -> prop) =
   forall x y h. equals x y /\ f x h ==> f y h
 
@@ -31,7 +34,7 @@ type comm_monoid (s:Type) = {
   laws: squash (
     symmetry equals /\ transitive equals /\ equals_law equals star /\
     associative equals star /\ commutative equals star /\ is_unit emp equals star /\
-    interp_extensionality equals interp)
+    interp_star star interp /\ interp_extensionality equals interp)
 }
 
 noeq
@@ -44,10 +47,13 @@ let post #s a (c:comm_monoid s) = a -> c.r
 
 noeq
 type action #s (c:comm_monoid s) (a:Type) = {
-   sem: s -> (a * s);
    pre: c.r;
    post: a -> c.r;
+   sem: (s0:s{c.interp pre s0}) -> (a * s);
    action_ok: (s0:s ->
+            Lemma
+              (c.interp pre s0 ==> (let x, s1 = sem s0 in c.interp (post x) s1)));
+   action_frame: (s0:s ->
               frame:c.r ->
               Lemma
                 (c.interp (c.star pre frame) s0 ==>
@@ -133,7 +139,7 @@ let rec run_threads #s #c (i:nat) (ts:threads s c) (state:s) (frame:c.r)
       | Act act1 k ->
         let b, state' = act1.sem state in
         assert (c.interp (p `c.star` (threads_pre rest) `c.star` frame) state);
-        act1.action_ok state (threads_pre rest `c.star` frame);
+        act1.action_frame state (threads_pre rest `c.star` frame);
         let kthread = Thread (act1.post b) q (k b) in
         let threads = kthread :: rest in
         let state'' = run_threads (i + 1) threads state' frame in
