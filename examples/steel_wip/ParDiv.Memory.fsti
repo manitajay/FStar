@@ -55,18 +55,85 @@ let laws : squash
     interp_extensionality equals interp
     )
 
-let res_monoid : comm_monoid HS.mem =
-  { r = resource;
-    equals = equals;
-    emp = empty_resource;
-    star = (<*>) ;
-    interp = interp;
-    laws = laws }
+/// Define actions operating on this monoid
 
-(* Define actions operating on this monoid *)
-// AF: Should we just consider functions from Steel.Array as actions?
-// And build purely out of them?
+/// Heaps are usually in a universe higher than the values they store
+/// Pick it in universe 1
+val heap : Type u#1 //= HS.mem
 
+/// Assume some monoid of heap assertions
+val hm : comm_monoid heap
+
+/// For this demo, we'll also assume that this assertions are affine
+///  i.e., it's ok to forget some properties of the heap
+val hm_affine (r0 r1:hm.r) (h:heap)
+  : Lemma (hm.interp (r0 `hm.star` r1) h ==>
+           hm.interp r0 h)
+
+/// Here's a ref type
+val ref : Type u#0 -> Type u#0
+
+/// And two atomic heap assertions
+val ptr_live (r:ref 'a) : hm.r
+
+
+
+val pts_to (r:ref 'a) (x:'a) : hm.r
+//  { t = 'a; view = pts_to_view r x }
+
+/// sel: Selected a reference from a heap, when that ref is live
+val sel (x:ref 'a) (h:heap{hm.interp (ptr_live x) h})
+  : Tot 'a // = HS.sel_tot h x
+
+/// this tells us that sel is frameable
+val sel_ok (x:ref 'a) (h:heap) (frame:hm.r)
+  : Lemma (hm.interp (ptr_live x `hm.star` frame) h ==>
+           (hm_affine (ptr_live x) frame h;
+            let v = sel x h in
+            hm.interp (pts_to x v `hm.star` frame) h))
+//  Classical.move_requires (sel_ok' x h) frame
+
+/// upd: updates a heap at a given reference, when the heap contains it
+val upd (x:ref 'a) (v:'a) (h:heap{hm.interp (ptr_live x) h})
+  : Tot heap
+/// and upd is frameable too
+val upd_ok (x:ref 'a) (v:'a) (h:heap) (frame:hm.r)
+  : Lemma (hm.interp (ptr_live x `hm.star` frame) h ==>
+           (hm_affine (ptr_live x) frame h;
+            let h' = upd x v h in
+            hm.interp (pts_to x v `hm.star` frame) h'))
+#push-options "--print_universes"
+
+/// Here's a sample action for dereference
+let (!) (x:ref 'a)
+  : eff 'a (ptr_live x) (fun v -> pts_to x v)
+  = let act : action hm 'a =
+    {
+      pre = ptr_live x;
+      post = pts_to x;
+      sem = (fun frame h0 ->
+        hm_affine (ptr_live x) frame h0;
+        sel_ok x h0 frame;
+        (| sel x h0, h0 |))
+    } in
+    Act act Ret
+
+/// And a sample action for assignment
+let (:=) (x:ref 'a) (v:'a)
+  : eff unit (ptr_live x) (fun _ -> pts_to x v)
+  = let act : action hm unit =
+    {
+      pre = ptr_live x;
+      post = (fun _ -> pts_to x v);
+      sem = (fun frame h0 ->
+        hm_affine (ptr_live x) frame h0;
+        upd_ok x v h0 frame;
+        (| (), upd x v h0 |))
+    } in
+    Act act Ret
+
+
+(*
 let get (#a:Type) (#rel:Preorder.preorder a) (s:HS.mreference a rel)
   (r:resource{forall h. r.view.inv h ==> h `HS.contains` s})
   : action res_monoid a =
@@ -81,3 +148,4 @@ let put (#a:Type) (#rel:Preorder.preorder a) (s:HS.mreference a rel)
   (pre_r:resource{forall h. pre_r.view.inv h ==> h `HS.contains` s})
   (post_r:resource) : action res_monoid unit
   = admit()
+*)
