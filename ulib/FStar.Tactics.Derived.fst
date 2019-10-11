@@ -684,11 +684,11 @@ let rec visit_tm (ff : term -> Tac term) (t : term) : Tac term =
     | Tv_Var _
     | Tv_BVar _
     | Tv_FVar _ -> tv
-    | Tv_FVar fv -> Tv_FVar fv
     | Tv_Type () -> Tv_Type ()
     | Tv_Const c -> Tv_Const c
     | Tv_Uvar i u -> Tv_Uvar i u
     | Tv_Unknown -> Tv_Unknown
+    | Tv_Arrow b c -> tv
     | Tv_App l (r, q) ->
          let l = visit_tm ff l in
          let r = visit_tm ff r in
@@ -714,7 +714,7 @@ let rec visit_tm (ff : term -> Tac term) (t : term) : Tac term =
     | Tv_AscribedC e c topt ->
         let e = visit_tm ff e in
         Tv_AscribedC e c topt
-    | _ -> fail "impos"
+    | _ -> tv
   in
   ff (pack tv')
 and visit_br (ff : term -> Tac term) (b:branch) : Tac branch =
