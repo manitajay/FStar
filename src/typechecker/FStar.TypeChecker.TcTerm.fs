@@ -116,7 +116,6 @@ let value_check_expected_typ env (e:term) (tlc:either<term,lcomp>) (guard:guard_
    match Env.expected_typ env with
    | None -> memo_tk e t, lc, guard
    | Some t' ->
-     let e, lc = TcUtil.maybe_coerce_lc env e lc t' in //add a b2t coercion if, e.g., e:bool and t'=Type
      let t = lc.res_typ in
      let e, g = TcUtil.check_and_ascribe env e t t' in
      if debug env Options.High
