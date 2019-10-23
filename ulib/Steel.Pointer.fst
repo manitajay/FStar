@@ -50,14 +50,28 @@ val pointer_to_array (#a: Type) (p: pointer a) : RST unit
    get_perm p h0 == A.get_rperm p h1
   )
 
-[@expect_failure]
-let pointer_to_array #a p =
-  let f = fun (av: vptr a) ->
-    let x : A.varray p = { A.s = Seq.init 1 (fun _ -> av.ptr_x); A.p = av.ptr_p } in
-    x
-  in
-  cast_to_refined_view (ptr_resource p) f;
-  assert(A.array_resource p == refine_view (ptr_resource p) f)
+#set-options "--print_effect_args"
+
+let vptr_to_varray (#a: Type) (p: pointer a) : vptr a -> Tot (A.varray p) = fun av ->
+   { A.s = Seq.init 1 (fun _ -> av.ptr_x); A.p = av.ptr_p }
+
+let bijective_resource_refinement (#a: Type) (p: pointer a)
+  : Lemma (A.array_resource p == refine_view (ptr_resource p) (vptr_to_varray p))
+  [SMTPat (refine_view (ptr_resource p) (vptr_to_varray p))]
+=
+  let old_res = A.array_resource p in
+  let new_res = refine_view (ptr_resource p) (vptr_to_varray p) in
+  assert(old_res.t == new_res.t);
+  assert(old_res.view.fp == new_res.view.fp);
+  assert(old_res.view.inv == new_res.view.inv);
+  // That will require functional extensionality
+  assume(old_res.view.sel == new_res.view.sel)
+
+val pointer_to_array_ (#a: Type) (p: pointer a) : RST unit
+  (ptr_resource p)
+  (fun _ -> refine_view (ptr_resource p) (vptr_to_varray p))
+  (fun _ -> True)
+  (fun h0 _ h1 -> True)
 
 let ptr_alloc #a init =
   let ptr : A.array a = A.alloc init 1ul in
