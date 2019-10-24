@@ -359,7 +359,7 @@ let refine_view r #a f =
   } in
   r'
 
-val cast_to_refined_view_ (r: resource) (#a: Type)  (f: r.t -> a) : rst_repr unit
+val cast_to_refined_view_ (r: resource) (#a: Type)  (f: r.t -> GTot a) : rst_repr unit
   r
   (fun _ -> refine_view r f)
   (fun _ -> True)
