@@ -18,6 +18,7 @@ module Steel.Resource
 open FStar.HyperStack.ST
 module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
+module Fext = FStar.FunctionalExtensionality
 
 open LowStar.Array
 
@@ -52,9 +53,9 @@ let ( <*> ) (res1 res2:resource) : res:resource =
   let sel (h: HS.mem) : GTot (res1.t & res2.t) = (sel res1.view h,sel res2.view h) in
   let t = res1.t & res2.t in
   let view = {
-      fp = fp;
-      inv = inv;
-      sel = sel
+      fp = Fext.on_dom_g HS.mem fp;
+      inv = Fext.on_dom_g HS.mem inv;
+      sel = Fext.on_dom_g HS.mem sel
     } in
   let out = {
     t = t;
@@ -75,9 +76,9 @@ let empty_resource : resource =
   let sel h = () in
   let t = unit in
   let (view:view t) = {
-      fp = fp;
-      inv = inv;
-      sel = sel
+      fp = Fext.on_dom_g HS.mem fp;
+      inv = Fext.on_dom_g HS.mem inv;
+      sel = Fext.on_dom_g HS.mem sel
     }
   in
   {

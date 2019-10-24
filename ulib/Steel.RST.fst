@@ -40,15 +40,15 @@ let frame_usedness_preservation_intro l1 l2 h0 h1 lemma =
 let frame_usedness_preservation_elim l1 l2 h0 h1 frame = ()
 
 let modifies res0 res1 h0 h1 =
-    modifies (as_loc (fp res0) h0) h0 h1 /\
-    frame_usedness_preservation (as_loc (fp res0) h0) (as_loc (fp res1) h1) h0 h1
+    modifies (as_loc (fp_of res0) h0) h0 h1 /\
+    frame_usedness_preservation (as_loc (fp_of res0) h0) (as_loc (fp_of res1) h1) h0 h1
 
 let reveal_modifies () = ()
 
 let modifies_refl res h = ()
 
 let modifies_trans res0 res1 res2 h0 h1 h2 =
-  modifies_loc_disjoint (as_loc (fp res0) h0) (as_loc (fp res1) h1) h0 h1 h2
+  modifies_loc_disjoint (as_loc (fp_of res0) h0) (as_loc (fp_of res1) h1) h0 h1 h2
 
 
 let is_subresource_of r0 r = exists (r1: resource). r `can_be_split_into` (r0, r1)
@@ -78,12 +78,13 @@ let is_subresource_of_trans r1 r2 r3 =
       let inner = r1 in
       let delta = delta13 in
       let goal h =
-        (as_loc (fp outer) h == A.loc_union (as_loc (fp delta) h) (as_loc (fp inner) h)) /\
-        (inv outer h <==>
-          inv inner h /\ inv delta h /\ A.loc_disjoint (as_loc (fp delta) h) (as_loc (fp inner) h))
+        (as_loc (fp_of outer) h == A.loc_union (as_loc (fp_of delta) h) (as_loc (fp_of inner) h)) /\
+        (inv_of outer h <==>
+          inv_of inner h /\ inv_of delta h /\
+	  A.loc_disjoint (as_loc (fp_of delta) h) (as_loc (fp_of inner) h))
       in
       let aux (h: HS.mem) : Lemma (goal h) =
-        loc_union_assoc (as_loc (fp delta23) h) (as_loc (fp delta12) h) (as_loc (fp r1) h)
+        loc_union_assoc (as_loc (fp_of delta23) h) (as_loc (fp_of delta12) h) (as_loc (fp_of r1) h)
       in
       Classical.forall_intro aux;
       assert(r3 `can_be_split_into` (r1, delta13))
@@ -103,7 +104,7 @@ open FStar.FunctionalExtensionality
 let mk_rmem r h =
    Fext.on_dom_g
      (r0:resource{r0 `is_subresource_of` r})
-     (fun (r0:resource{r0 `is_subresource_of` r}) -> sel r0.view h)
+     (fun (r0:resource{r0 `is_subresource_of` r}) -> sel_of r0.view h)
 
 let mk_rmem_spec r h r0 = ()
 
@@ -138,8 +139,8 @@ let focus_rmem_equality outer inner arg h =
 
 val focus_mk_rmem_equality (outer inner: resource) (h: HS.mem)
   : Lemma
-    (requires (inv outer h /\ inner `is_subresource_of` outer))
-    (ensures (is_subresource_of_elim inner outer (inv inner h) (fun _ -> ());
+    (requires (inv_of outer h /\ inner `is_subresource_of` outer))
+    (ensures (is_subresource_of_elim inner outer (inv_of inner h) (fun _ -> ());
       focus_rmem (mk_rmem outer h) inner == mk_rmem inner h))
 
 let focus_mk_rmem_equality outer inner h =
@@ -163,7 +164,7 @@ let extend_rprop (#r0: resource) (p: rprop r0) (r: resource{r0 `is_subresource_o
   fun s -> p (focus_rmem #r s r0)
 
 let rst_inv res h =
-  loc_includes (loc_used_in h) (as_loc (fp res) h) /\ True
+  loc_includes (loc_used_in h) (as_loc (fp_of res) h) /\ True
 
 let reveal_rst_inv () = ()
 
@@ -261,13 +262,13 @@ inline_for_extraction noextract let rst_frame_
   (**)  old_delta
   (**)  cur_delta;
   (**) let same_subdelta (r0:resource{r0 `is_subresource_of` delta})
-  (**)   : Lemma (sel r0.view h0 == sel r0.view h1)
+  (**)   : Lemma (sel_of r0.view h0 == sel_of r0.view h1)
   (**)   = ()
   (**) in
   (**) Classical.forall_intro same_subdelta;
   (**) assert (feq_g old_delta cur_delta);
   (**) assert (modifies inner0 (inner1 x) h0 h1);
-  (**) assert (A.modifies (as_loc (fp outer0) h0) h0 h1);
+  (**) assert (A.modifies (as_loc (fp_of outer0) h0) h0 h1);
   (**) assert (modifies outer0 (outer1 x) h0 h1);
   x
 
@@ -278,10 +279,10 @@ inline_for_extraction noextract let rst_frame outer0 #inner0 #a outer1 #inner1 #
 
 #pop-options
 
-#push-options "--z3rlimit 30"
+#push-options "--z3rlimit 20"
 
 let refine_inv r p =
-  let new_inv (h: HS.mem) : prop = r.view.inv h /\ p (mk_rmem r h) in
+  let new_inv (h: HS.mem) : prop = (inv_of r) h /\ p (mk_rmem r h) in
   let new_view = { r.view with inv = new_inv } in
   reveal_view ();
   let open LowStar.Array in
@@ -327,8 +328,8 @@ let cast_to_refined_inv_ r p = fun _ ->
   reveal_rst_inv ();
   reveal_modifies ();
   let h = HST.get () in
-  assert((mk_rmem r h) r == sel r.view h);
-  assert((mk_rmem (refine_inv r p) h) (refine_inv r p) == sel (refine_inv r p).view h)
+  assert((mk_rmem r h) r == sel_of r.view h);
+  assert((mk_rmem (refine_inv r p) h) (refine_inv r p) == sel_of (refine_inv r p).view h)
 
 let cast_to_refined_inv r p = RST?.reflect (cast_to_refined_inv_ r p)
 
@@ -343,19 +344,20 @@ let cast_from_refined_inv_ r p = fun _ ->
   reveal_rst_inv ();
   reveal_modifies ();
   let h = HST.get () in
-  assert((mk_rmem r h) r == sel r.view h);
-  assert((mk_rmem (refine_inv r p) h) (refine_inv r p) == sel (refine_inv r p).view h)
+  assert((mk_rmem r h) r == sel_of r.view h);
+  assert((mk_rmem (refine_inv r p) h) (refine_inv r p) == sel_of (refine_inv r p).view h)
 
 let cast_from_refined_inv r p = RST?.reflect (cast_from_refined_inv_ r p)
 
 let refine_view r #a f =
   let new_sel h = f (r.view.sel h) in
-  let new_view = { r.view with sel = new_sel} in
+  let new_view = { r.view with sel = Fext.on_dom_g HS.mem new_sel} in
   reveal_view ();
-  {
+  let r': resource = {
    t = a;
    view = new_view
-  }
+  } in
+  r'
 
 val cast_to_refined_view_ (r: resource) (#a: Type)  (f: r.t -> a) : rst_repr unit
   r
@@ -368,7 +370,7 @@ let cast_to_refined_view_ r #a f = fun _ ->
   reveal_rst_inv ();
   reveal_modifies ();
   let h = HST.get () in
-  assert((mk_rmem r h) r == sel r.view h);
-  assert((mk_rmem (refine_view r f) h) (refine_view r f) == sel (refine_view r f).view h)
+  assert((mk_rmem r h) r == sel_of r.view h);
+  assert((mk_rmem (refine_view r f) h) (refine_view r f) == sel_of (refine_view r f).view h)
 
 let cast_to_refined_view r #a f = RST?.reflect (cast_to_refined_view_ r #a f)

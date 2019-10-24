@@ -35,7 +35,7 @@ let index_ (#a:Type) (b:A.array a) (i:UInt32.t) = fun _ ->
   (**) let h0 = HST.get () in
   let x = A.index b i in
   (**) // TODO: how to trigger that automatically ?
-  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) == sel (array_resource b).view h0);
+  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) == sel_of (array_resource b).view h0);
   x
 
 let index #a b i = RST?.reflect (index_ #a b i)
@@ -58,11 +58,13 @@ let upd_ (#a:Type) (b:A.array a) (i:UInt32.t) (v:a) = fun _ ->
   A.upd b i v;
   (**) let h1 = HST.get () in
   (**) assert(modifies (array_resource b) (array_resource b) h0 h1);
-  (**) assert(A.loc_includes (A.loc_used_in h0) (as_loc (fp (array_resource b)) h0));
+  (**) assert(A.loc_includes (A.loc_used_in h0) (as_loc (fp_of (array_resource b)) h0));
   (**) A.live_array_used_in b h1;
   (**) same_perm_seq_always_constant h0 h1 b;
-  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) == sel (array_resource b).view h0);
-  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) == sel (array_resource b).view h1)
+  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) ==
+  (**)   sel_of (array_resource b).view h0);
+  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) ==
+  (**)   sel_of (array_resource b).view h1)
 
 let upd #a b i v = RST?.reflect (upd_ #a b i v)
 
@@ -87,7 +89,8 @@ let alloc_ (#a:Type) (init:a) (len:UInt32.t) = fun _ ->
   (**) assert(forall (i:nat{i < A.vlength #a b}). A.get_perm #a h1 b i == P.full_permission);
   // TODO: Find out how to trigger that
   (**) A.live_array_used_in b h1;
-  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) == sel (array_resource b).view h1);
+  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) ==
+  (**)  sel_of (array_resource b).view h1);
   b
 
 let alloc #a init len = RST?.reflect (alloc_ #a init len)
@@ -104,10 +107,11 @@ let free_ (#a:Type) (b:A.array a) = fun _ ->
   (**) reveal_rst_inv();
   (**) reveal_modifies();
   (**) let h0 = HST.get () in
-  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) == sel (array_resource b).view h0);
+  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) ==
+  (**)   sel_of (array_resource b).view h0);
   A.free b;
   (**) let h1 = HST.get () in
-  (**) assert((mk_rmem empty_resource h1) empty_resource == sel empty_resource.view h1)
+  (**) assert((mk_rmem empty_resource h1) empty_resource == sel_of empty_resource.view h1)
 
 let free #a b = RST?.reflect (free_ #a b)
 
@@ -134,11 +138,12 @@ let share_ #a b = fun _ ->
   let b' = A.share b in
   (**) let h1 = HST.get () in
   (**) A.live_array_used_in b h1;
-  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) == sel (array_resource b).view h0);
+  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) ==
+  (**)   sel_of (array_resource b).view h0);
   (**) assert(
   (**)   (mk_rmem (array_resource b <*> array_resource b') h1)
   (**)     (array_resource b <*> array_resource b') ==
-  (**)   sel (array_resource b <*> array_resource b').view h1
+  (**)   sel_of (array_resource b <*> array_resource b').view h1
   (**) );
   b'
 
@@ -163,11 +168,11 @@ let gather_ #a b b' = fun _ ->
   A.gather #a b b';
   (**) let h1 = HST.get () in
   (**) A.live_array_used_in b h1;
-  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) == sel (array_resource b).view h1);
+  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) == sel_of (array_resource b).view h1);
   (**) assert(
   (**)   (mk_rmem (array_resource b <*> array_resource b') h0)
   (**)     (array_resource b <*> array_resource b') ==
-  (**)   sel (array_resource b <*> array_resource b').view h0
+  (**)   sel_of (array_resource b <*> array_resource b').view h0
   (**) )
 
 let gather #a b b' = RST?.reflect (gather_ #a b b')
@@ -197,23 +202,27 @@ let split_ #a b idx = fun _ ->
   let (b1, b2) = A.split #a b idx in
   (**) let h1 = HST.get () in
   (**) reveal_star_inv (array_resource b1) (array_resource b2) h1;
-  (**) let aux1 (i:nat{i < A.vlength b1}) (j:nat{j < A.vlength b1}) : Lemma (A.get_perm h1 b1 i == A.get_perm h1 b1 j) =
+  (**) let aux1 (i:nat{i < A.vlength b1}) (j:nat{j < A.vlength b1})
+  (**)   : Lemma (A.get_perm h1 b1 i == A.get_perm h1 b1 j) =
   (**)   assert(A.get_perm h1 b1 i == A.get_perm h0 b i);
   (**)   assert(A.get_perm h1 b1 j == A.get_perm h0 b j)
   (**) in
   (**) Classical.forall_intro_2 aux1;
-  (**) let aux2 (i:nat{i < A.vlength b2}) (j:nat{j < A.vlength b2}) : Lemma (A.get_perm h1 b2 i == A.get_perm h1 b2 j) =
+  (**) let aux2 (i:nat{i < A.vlength b2}) (j:nat{j < A.vlength b2})
+  (**)   : Lemma (A.get_perm h1 b2 i == A.get_perm h1 b2 j) =
   (**)   assert(A.get_perm h1 b2 i == A.get_perm h0 b (i + A.vlength b1));
   (**)   assert(A.get_perm h1 b2 j == A.get_perm h0 b (j + A.vlength b1))
   (**) in
   (**) Classical.forall_intro_2 aux2;
-  (**) assert(forall(i:nat{i < A.vlength b2}). (A.get_perm h1 b2 i == A.get_perm h0 b (i + A.vlength b1)));
+  (**) assert(forall(i:nat{i < A.vlength b2}). (A.get_perm h1 b2 i ==
+  (**)   A.get_perm h0 b (i + A.vlength b1)));
   (**) A.loc_union_is_split_into #a b b1 b2;
-  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) == sel (array_resource b).view h0);
+  (**) assert((mk_rmem (array_resource b) h0) (array_resource b) ==
+  (**)   sel_of (array_resource b).view h0);
   (**) assert(
   (**)   (mk_rmem (array_resource b1 <*> array_resource b2) h1)
   (**)     (array_resource b1 <*> array_resource b2) ==
-  (**)   sel (array_resource b1 <*> array_resource b2).view h1
+  (**)   sel_of (array_resource b1 <*> array_resource b2).view h1
   (**) );
   (b1, b2)
 
@@ -241,7 +250,8 @@ let glue_ #a b b1 b2 = fun _ ->
   (**) reveal_star_inv (array_resource b1) (array_resource b2) h0;
   A.glue #a b b1 b2;
   (**) let h1 = HST.get () in
-  (**) let aux (i:nat{i < A.vlength b}) (j:nat{j < A.vlength b}) : Lemma (A.get_perm h1 b i == A.get_perm h1 b j) =
+  (**) let aux (i:nat{i < A.vlength b}) (j:nat{j < A.vlength b})
+  (**)   : Lemma (A.get_perm h1 b i == A.get_perm h1 b j) =
   (**)   begin if i < A.vlength b1 then
   (**)     assert(A.get_perm h1 b i == A.get_perm h0 b1 i)
   (**)   else
@@ -258,11 +268,12 @@ let glue_ #a b b1 b2 = fun _ ->
   (**) assert(A.modifies (A.loc_array b) h0 h1);
   (**) assert(A.is_split_into b (b1,b2));
   (**) A.loc_union_is_split_into b b1 b2;
-  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) == sel (array_resource b).view h1);
+  (**) assert((mk_rmem (array_resource b) h1) (array_resource b) ==
+  (**)   sel_of (array_resource b).view h1);
   (**) assert(
   (**)   (mk_rmem (array_resource b1 <*> array_resource b2) h0)
   (**)     (array_resource b1 <*> array_resource b2) ==
-  (**)   sel (array_resource b1 <*> array_resource b2).view h0
+  (**)   sel_of (array_resource b1 <*> array_resource b2).view h0
   (**) )
 
 #pop-options

@@ -10,7 +10,7 @@
    Unless required by applicable law or agreed to in writing, software
    distributed under the License is distributed on an "AS IS" BASIS,
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
+   See the License for the specific language governig permissions and
    limitations under the License.
 *)
 module Steel.RST
@@ -62,8 +62,8 @@ val modifies (res0 res1:resource) (h0 h1:HS.mem) : prop
 val reveal_modifies (_ : unit)
   : Lemma (forall res0 res1 h0 h1.{:pattern modifies res0 res1 h0 h1}
     modifies res0 res1 h0 h1 <==>
-      A.modifies (as_loc (fp res0) h0) h0 h1 /\
-      frame_usedness_preservation (as_loc (fp res0) h0) (as_loc (fp res1) h1) h0 h1
+      A.modifies (as_loc (fp_of res0) h0) h0 h1 /\
+      frame_usedness_preservation (as_loc (fp_of res0) h0) (as_loc (fp_of res1) h1) h0 h1
    )
 
 val modifies_refl (res:resource) (h:HS.mem)
@@ -159,10 +159,10 @@ let rmem (r: resource) : Type =
 
 val mk_rmem
   (r: resource)
-  (h: imem (inv r)) :
+  (h: imem (inv_of r)) :
   Tot (rh:rmem r{
-    forall (r0:resource{r0 `is_subresource_of` r}). {:pattern (rh r0) \/ (sel r0.view h) }
-    rh r0 == sel r0.view h
+    forall (r0:resource{r0 `is_subresource_of` r}). {:pattern (rh r0) \/ (sel_of r0.view h) }
+    rh r0 == sel_of r0.view h
   })
 
 
@@ -195,7 +195,7 @@ val rst_inv (res:resource) (h:HS.mem) : GTot prop
 val reveal_rst_inv (_ : unit)
   : Lemma (forall res h .
     rst_inv res h <==>
-      A.loc_includes (A.loc_used_in h) (as_loc (fp res) h)
+      A.loc_includes (A.loc_used_in h) (as_loc (fp_of res) h)
   )
 
 val rst_inv_star (res0 res1: resource) (h: HS.mem)
@@ -241,11 +241,11 @@ type rst_wp (a:Type) (r_in:resource) (r_out:a -> resource) =
 type repr (a:Type) (r_in:resource) (r_out:a -> resource) (wp:rst_wp a r_in r_out) =
   unit -> ST.STATE a
     (fun p h0 ->
-      inv r_in h0 /\ rst_inv r_in h0 /\
+      inv_of r_in h0 /\ rst_inv r_in h0 /\
       wp (fun (x:a) (h_r_out:rmem (r_out x)) ->
-        forall (h1 : imem (inv (r_out x))). (
+        forall (h1 : imem (inv_of (r_out x))). (
 	    mk_rmem (r_out x) h1 == h_r_out /\
-            inv (r_out x) h1 /\
+            inv_of (r_out x) h1 /\
             rst_inv (r_out x) h1 /\
             modifies r_in (r_out x) h0 h1
 	  ) ==> p x h1
@@ -405,7 +405,7 @@ inline_for_extraction noextract val rst_frame
 
 val refine_inv (r:resource) (p:rprop r) : Tot (r':resource{
     r'.t == r.t /\
-    r'.view == {r.view with inv = fun h -> r.view.inv h /\ p (mk_rmem r h)}
+    r'.view == {r.view with inv = fun h -> (inv_of r) h /\ p (mk_rmem r h)}
   })
 
 val cast_to_refined_inv (r: resource) (p:rprop r) : RST unit
@@ -420,14 +420,14 @@ val cast_from_refined_inv (r: resource) (p:rprop r) : RST unit
   (fun _ -> True)
   (fun _ _ h1 -> p h1)
 
-val refine_view (r: resource) (#a: Type) (f: r.t -> a) : Tot (r':resource{
+val refine_view (r: resource) (#a: Type) (f: r.t -> GTot a) : GTot (r':resource{
     r'.t == a /\
     r'.view.fp == r.view.fp /\
     r'.view.inv == r.view.inv /\
-    r'.view.sel == (fun h -> f (r.view.sel h))
+    r'.view.sel == Fext.on_dom_g HS.mem (fun h -> f (r.view.sel h))
   })
 
-val cast_to_refined_view (r: resource) (#a: Type)  (f: r.t -> a) : RST unit
+val cast_to_refined_view (r: resource) (#a: Type)  (f: r.t -> GTot a) : RST unit
   r
   (fun _ -> refine_view r f)
   (fun _ -> True)
